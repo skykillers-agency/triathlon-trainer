@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Triathlon Trainer | Garmin Connect</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/styles.css">
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen antialiased">
+  
+  <!-- Navigation Header -->
+  <header class="border-b border-slate-800/80 bg-slate-900/60 backdrop-blur-md sticky top-0 z-40">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 via-emerald-500 to-amber-500 flex items-center justify-center shadow-lg shadow-emerald-500/20">
+          <span class="text-xl font-black text-slate-950">3X</span>
+        </div>
+        <div>
+          <h1 class="font-extrabold text-lg tracking-tight bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">
+            AI Triathlon Trainer
+          </h1>
+          <p class="text-xs text-slate-400">Powered by Garmin Connect &amp; MCP</p>
+        </div>
+      </div>
+
+      <div class="flex items-center space-x-3">
+        <!-- Auth Status Indicator -->
+        <div id="authStatusBadge" class="flex items-center space-x-2 px-3 py-1.5 rounded-full border border-slate-700 bg-slate-800/80 text-xs font-medium text-slate-300">
+          <span id="authDot" class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+          <span id="authStatusText">Checking Garmin...</span>
+        </div>
+
+        <button id="openAuthModalBtn" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-emerald-500 hover:bg-emerald-400 text-slate-950 transition-all shadow-sm shadow-emerald-500/30">
+          Garmin Auth
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+    
+    <!-- Hero / AI Daily Coach Dispatch -->
+    <section class="relative overflow-hidden rounded-2xl border border-slate-800 bg-gradient-to-b from-slate-900/90 to-slate-900/40 p-6 md:p-8 shadow-xl">
+      <div class="absolute -top-24 -right-24 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none"></div>
+      <div class="absolute -bottom-24 -left-24 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
+      <div class="relative z-10 grid grid-cols-1 lg:grid-cols-3 gap-6 items-center">
+        <!-- Left 2 Cols: AI Coach Dispatch -->
+        <div class="lg:col-span-2 space-y-3">
+          <div class="flex items-center space-x-2">
+            <span class="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-semibold tracking-wide uppercase bg-emerald-950/80 text-emerald-400 border border-emerald-800/60" id="readinessLevelBadge">
+              Optimal Readiness
+            </span>
+            <span class="text-xs text-slate-400" id="assessmentDate">Today</span>
+          </div>
+          <h2 class="text-2xl sm:text-3xl font-bold tracking-tight text-white" id="coachHeadline">
+            Loading athlete recovery state...
+          </h2>
+          <p class="text-slate-300 text-sm sm:text-base leading-relaxed" id="coachAdvice">
+            Connecting to Garmin Connect to analyze HRV, sleep stages, and acute training stress...
+          </p>
+        </div>
+
+        <!-- Right Col: Primary Readiness Gauge -->
+        <div class="flex flex-col items-center justify-center p-4 bg-slate-950/60 rounded-xl border border-slate-800/80">
+          <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Readiness Score</div>
+          <div class="relative flex items-center justify-center">
+            <svg class="w-32 h-32 transform -rotate-90">
+              <circle cx="64" cy="64" r="52" stroke="currentColor" stroke-width="10" class="text-slate-800" fill="transparent"/>
+              <circle id="readinessCircle" cx="64" cy="64" r="52" stroke="currentColor" stroke-width="10" class="text-emerald-400 transition-all duration-1000" stroke-dasharray="326.7" stroke-dashoffset="65" stroke-linecap="round" fill="transparent"/>
+            </svg>
+            <div class="absolute flex flex-col items-center">
+              <span id="readinessScoreVal" class="text-4xl font-extrabold text-white tracking-tight">--</span>
+              <span class="text-[10px] text-slate-400 font-medium uppercase">/ 100</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Physiological Metrics Row -->
+      <div class="mt-8 pt-6 border-t border-slate-800/80 grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <!-- Sleep -->
+        <div class="bg-slate-950/40 p-3.5 rounded-xl border border-slate-800/60">
+          <div class="flex items-center justify-between text-xs text-slate-400 mb-1">
+            <span>Sleep Score</span>
+            <span class="text-indigo-400">🌙</span>
+          </div>
+          <div class="flex items-baseline space-x-1.5">
+            <span id="sleepScoreVal" class="text-2xl font-bold text-white">--</span>
+            <span id="sleepDurationVal" class="text-xs text-slate-400">(-- hrs)</span>
+          </div>
+          <div class="text-[11px] text-slate-400 mt-1" id="sleepBreakdown">Deep / REM data</div>
+        </div>
+
+        <!-- HRV -->
+        <div class="bg-slate-950/40 p-3.5 rounded-xl border border-slate-800/60">
+          <div class="flex items-center justify-between text-xs text-slate-400 mb-1">
+            <span>HRV Status</span>
+            <span class="text-emerald-400">💓</span>
+          </div>
+          <div class="flex items-baseline space-x-1.5">
+            <span id="hrvStatusVal" class="text-xl font-bold text-white">--</span>
+          </div>
+          <div class="text-[11px] text-slate-400 mt-1" id="hrvAvgVal">Avg: -- ms</div>
+        </div>
+
+        <!-- Body Battery -->
+        <div class="bg-slate-950/40 p-3.5 rounded-xl border border-slate-800/60">
+          <div class="flex items-center justify-between text-xs text-slate-400 mb-1">
+            <span>Body Battery</span>
+            <span class="text-cyan-400">⚡</span>
+          </div>
+          <div class="flex items-baseline space-x-1.5">
+            <span id="bodyBatteryVal" class="text-2xl font-bold text-white">--</span>
+            <span class="text-xs text-slate-400">/ 100</span>
+          </div>
+          <div class="text-[11px] text-slate-400 mt-1" id="batteryDrainVal">Charged / Drained</div>
+        </div>
+
+        <!-- Resting HR & Stress -->
+        <div class="bg-slate-950/40 p-3.5 rounded-xl border border-slate-800/60">
+          <div class="flex items-center justify-between text-xs text-slate-400 mb-1">
+            <span>Resting HR</span>
+            <span class="text-rose-400">🩺</span>
+          </div>
+          <div class="flex items-baseline space-x-1.5">
+            <span id="restingHrVal" class="text-2xl font-bold text-white">--</span>
+            <span class="text-xs text-slate-400">bpm</span>
+          </div>
+          <div class="text-[11px] text-slate-400 mt-1" id="stressVal">Stress: -- avg</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Multi-Sport Weekly Volume Tracking -->
+    <section class="space-y-4">
+      <div class="flex items-center justify-between">
+        <div>
+          <h3 class="text-xl font-bold text-white tracking-tight">Weekly Discipline Volume</h3>
+          <p class="text-xs text-slate-400">Current week distance &amp; duration targets</p>
+        </div>
+        <div class="text-xs font-medium text-slate-400 bg-slate-900 border border-slate-800 px-3 py-1.5 rounded-lg">
+          Total: <span id="weeklyTotalHours" class="font-bold text-white">--</span> hrs · <span id="weeklyTotalSessions" class="font-bold text-white">--</span> sessions
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <!-- Swim Card -->
+        <div class="rounded-2xl border border-cyan-900/40 bg-gradient-to-b from-cyan-950/30 to-slate-900/60 p-5 space-y-3">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center space-x-2">
+              <span class="p-2 rounded-lg bg-cyan-500/10 text-cyan-400 font-bold text-base">🏊</span>
+              <h4 class="font-bold text-white text-base">Swim</h4>
+            </div>
+            <span id="swimSessions" class="text-xs font-semibold text-cyan-400 bg-cyan-950/60 border border-cyan-800/60 px-2 py-0.5 rounded-full">0 sessions</span>
+          </div>
+          <div>
+            <div class="flex items-baseline justify-between">
+              <span id="swimDistance" class="text-3xl font-extrabold text-white">--</span>
+              <span class="text-xs text-slate-400">Goal: <span id="swimTarget">4.0</span> km</span>
+            </div>
+            <div class="text-xs text-slate-400 mt-0.5" id="swimHours">-- hrs logged</div>
+          </div>
+          <div class="w-full bg-slate-800 rounded-full h-2 overflow-hidden">
+            <div id="swimProgressBar" class="bg-cyan-400 h-2 rounded-full transition-all duration-700" style="width: 0%"></div>
+          </div>
+        </div>
+
+        <!-- Bike Card -->
+        <div class="rounded-2xl border border-emerald-900/40 bg-gradient-to-b from-emerald-950/30 to-slate-900/60 p-5 space-y-3">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center space-x-2">
+              <span class="p-2 rounded-lg bg-emerald-500/10 text-emerald-400 font-bold text-base">🚴</span>
+              <h4 class="font-bold text-white text-base">Bike</h4>
+            </div>
+            <span id="bikeSessions" class="text-xs font-semibold text-emerald-400 bg-emerald-950/60 border border-emerald-800/60 px-2 py-0.5 rounded-full">0 sessions</span>
+          </div>
+          <div>
+            <div class="flex items-baseline justify-between">
+              <span id="bikeDistance" class="text-3xl font-extrabold text-white">--</span>
+              <span class="text-xs text-slate-400">Goal: <span id="bikeTarget">80.0</span> km</span>
+            </div>
+            <div class="text-xs text-slate-400 mt-0.5" id="bikeHours">-- hrs logged</div>
+          </div>
+          <div class="w-full bg-slate-800 rounded-full h-2 overflow-hidden">
+            <div id="bikeProgressBar" class="bg-emerald-400 h-2 rounded-full transition-all duration-700" style="width: 0%"></div>
+          </div>
+        </div>
+
+        <!-- Run Card -->
+        <div class="rounded-2xl border border-amber-900/40 bg-gradient-to-b from-amber-950/30 to-slate-900/60 p-5 space-y-3">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center space-x-2">
+              <span class="p-2 rounded-lg bg-amber-500/10 text-amber-400 font-bold text-base">🏃</span>
+              <h4 class="font-bold text-white text-base">Run</h4>
+            </div>
+            <span id="runSessions" class="text-xs font-semibold text-amber-400 bg-amber-950/60 border border-amber-800/60 px-2 py-0.5 rounded-full">0 sessions</span>
+          </div>
+          <div>
+            <div class="flex items-baseline justify-between">
+              <span id="runDistance" class="text-3xl font-extrabold text-white">--</span>
+              <span class="text-xs text-slate-400">Goal: <span id="runTarget">25.0</span> km</span>
+            </div>
+            <div class="text-xs text-slate-400 mt-0.5" id="runHours">-- hrs logged</div>
+          </div>
+          <div class="w-full bg-slate-800 rounded-full h-2 overflow-hidden">
+            <div id="runProgressBar" class="bg-amber-400 h-2 rounded-full transition-all duration-700" style="width: 0%"></div>
+          </div>
+        </div>
+
+        <!-- Strength & Brick Card -->
+        <div class="rounded-2xl border border-purple-900/40 bg-gradient-to-b from-purple-950/30 to-slate-900/60 p-5 space-y-3">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center space-x-2">
+              <span class="p-2 rounded-lg bg-purple-500/10 text-purple-400 font-bold text-base">🏋️</span>
+              <h4 class="font-bold text-white text-base">Strength &amp; Brick</h4>
+            </div>
+            <span id="brickSessions" class="text-xs font-semibold text-rose-400 bg-rose-950/60 border border-rose-800/60 px-2 py-0.5 rounded-full">0 bricks</span>
+          </div>
+          <div>
+            <div class="flex items-baseline justify-between">
+              <span id="strengthHours" class="text-3xl font-extrabold text-white">--</span>
+              <span class="text-xs text-slate-400">Goal: 1.5 hrs</span>
+            </div>
+            <div class="text-xs text-slate-400 mt-0.5" id="strengthSessions">-- sessions logged</div>
+          </div>
+          <div class="w-full bg-slate-800 rounded-full h-2 overflow-hidden">
+            <div id="strengthProgressBar" class="bg-purple-400 h-2 rounded-full transition-all duration-700" style="width: 0%"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Interactive AI Workout Generator -->
+    <section class="rounded-2xl border border-slate-800 bg-slate-900/70 p-6 md:p-8 space-y-6">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h3 class="text-xl font-bold text-white tracking-tight flex items-center space-x-2">
+            <span>⚡ Adaptive AI Workout Builder</span>
+          </h3>
+          <p class="text-xs text-slate-400">Generates structured interval sets matched to your readiness and training phase</p>
+        </div>
+        
+        <div class="flex flex-wrap items-center gap-2" id="disciplineSelector">
+          <button data-disc="swim" class="disc-btn px-4 py-2 rounded-xl text-xs font-semibold bg-slate-800 text-slate-300 hover:text-white border border-slate-700/80 transition-all">
+            🏊 Swim
+          </button>
+          <button data-disc="bike" class="disc-btn px-4 py-2 rounded-xl text-xs font-semibold bg-emerald-500 text-slate-950 border border-emerald-400 transition-all active-disc">
+            🚴 Bike
+          </button>
+          <button data-disc="run" class="disc-btn px-4 py-2 rounded-xl text-xs font-semibold bg-slate-800 text-slate-300 hover:text-white border border-slate-700/80 transition-all">
+            🏃 Run
+          </button>
+          <button data-disc="brick" class="disc-btn px-4 py-2 rounded-xl text-xs font-semibold bg-slate-800 text-slate-300 hover:text-white border border-slate-700/80 transition-all">
+            🧱 Brick
+          </button>
+          <button data-disc="strength" class="disc-btn px-4 py-2 rounded-xl text-xs font-semibold bg-slate-800 text-slate-300 hover:text-white border border-slate-700/80 transition-all">
+            🏋️ Strength
+          </button>
+        </div>
+      </div>
+
+      <!-- Generator Options Form -->
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
+        <div>
+          <label class="block text-xs font-medium text-slate-400 mb-1.5">Session Target</label>
+          <select id="workoutTypeSelect" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-sm text-white focus:outline-none focus:border-emerald-500">
+            <option value="sweetspot">80/20 Sweet Spot Intervals (Cycling)</option>
+            <option value="endurance">Zone 2 Aerobic Base</option>
+            <option value="intervals">VO2 Max / Threshold</option>
+            <option value="technique">Recovery &amp; Drills</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-medium text-slate-400 mb-1.5">Target Duration (Minutes)</label>
+          <input type="number" id="workoutDurationInput" value="60" min="20" max="240" step="5" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-sm text-white focus:outline-none focus:border-emerald-500">
+        </div>
+
+        <div class="flex items-end">
+          <button id="generateWorkoutBtn" class="w-full py-2.5 px-4 rounded-xl text-sm font-semibold bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 text-slate-950 transition-all shadow-md shadow-emerald-500/20 flex items-center justify-center space-x-2">
+            <span>⚡ Generate Tailored Workout</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Generated Workout Card -->
+      <div id="workoutCard" class="hidden rounded-xl border border-slate-800 bg-slate-950/80 p-6 space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-slate-800 gap-2">
+          <div>
+            <h4 id="workoutTitle" class="text-lg font-bold text-white">Workout Title</h4>
+            <p id="workoutDesc" class="text-xs text-slate-400 mt-0.5">Workout description</p>
+          </div>
+          <div class="flex items-center space-x-2">
+            <span id="workoutIntensityBadge" class="px-2.5 py-1 rounded-md text-xs font-medium bg-emerald-950 text-emerald-400 border border-emerald-800">
+              Zone 2 / Sweet Spot
+            </span>
+            <span id="workoutDurationBadge" class="px-2.5 py-1 rounded-md text-xs font-medium bg-slate-800 text-slate-300">
+              60 min
+            </span>
+          </div>
+        </div>
+
+        <!-- Steps List -->
+        <div class="space-y-2.5" id="workoutStepsContainer">
+          <!-- Populated by JS -->
+        </div>
+
+        <!-- Push to Garmin Button -->
+        <div class="pt-4 flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-slate-800/80">
+          <div class="flex items-center space-x-2 text-xs text-slate-400">
+            <span>Schedule for:</span>
+            <input type="date" id="scheduleDateInput" class="bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1 text-xs text-white">
+          </div>
+          <button id="pushToGarminBtn" class="w-full sm:w-auto px-5 py-2 rounded-xl text-xs font-bold bg-cyan-500 hover:bg-cyan-400 text-slate-950 transition-all shadow-sm shadow-cyan-500/30 flex items-center justify-center space-x-1.5">
+            <span>⌚ Push to Garmin Watch</span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Recent Activities Feed -->
+    <section class="space-y-4">
+      <div class="flex items-center justify-between">
+        <div>
+          <h3 class="text-xl font-bold text-white tracking-tight">Recent Completed Activities</h3>
+          <p class="text-xs text-slate-400">Garmin Connect multi-sport training log</p>
+        </div>
+        <button id="refreshActivitiesBtn" class="text-xs text-slate-400 hover:text-white px-3 py-1.5 rounded-lg border border-slate-800 hover:border-slate-700 transition-all">
+          🔄 Refresh
+        </button>
+      </div>
+
+      <div class="overflow-x-auto rounded-2xl border border-slate-800 bg-slate-900/60">
+        <table class="w-full text-left text-sm text-slate-300">
+          <thead class="bg-slate-950/70 text-xs uppercase text-slate-400 tracking-wider border-b border-slate-800">
+            <tr>
+              <th class="py-3.5 px-4">Discipline</th>
+              <th class="py-3.5 px-4">Activity Name</th>
+              <th class="py-3.5 px-4">Date</th>
+              <th class="py-3.5 px-4">Distance</th>
+              <th class="py-3.5 px-4">Duration</th>
+              <th class="py-3.5 px-4">Avg Pace / Speed</th>
+              <th class="py-3.5 px-4">Avg HR</th>
+              <th class="py-3.5 px-4">Training Effect</th>
+            </tr>
+          </thead>
+          <tbody id="activitiesTableBody" class="divide-y divide-slate-800/60 text-xs">
+            <tr>
+              <td colspan="8" class="py-6 text-center text-slate-500">Loading activities...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <!-- Garmin Auth Modal -->
+  <div id="authModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-5">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <div class="flex items-center space-x-2.5">
+          <div class="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-400 font-bold">
+            ⌚
+          </div>
+          <h3 class="text-lg font-bold text-white">Garmin Account Connection</h3>
+        </div>
+        <button id="closeAuthModalBtn" class="text-slate-400 hover:text-white text-lg font-bold">✕</button>
+      </div>
+
+      <div class="space-y-3 text-xs text-slate-300 leading-relaxed">
+        <p>
+          This platform uses <strong class="text-white">taxuspt/garmin_mcp</strong> to securely access your activities, recovery metrics, and workout schedules without storing your Garmin password.
+        </p>
+
+        <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-2">
+          <div class="text-[11px] font-semibold text-slate-400 uppercase tracking-wide">Step 1: One-time Terminal Authentication</div>
+          <p class="text-slate-400">Run this command in your Mac terminal (handles email, password, and MFA securely):</p>
+          <div class="bg-slate-900 border border-slate-800 p-2.5 rounded-lg flex items-center justify-between font-mono text-[11px] text-emerald-400">
+            <span class="truncate mr-2">/Users/kachkarda/.local/bin/uvx --python 3.12 --from git+https://github.com/Taxuspt/garmin_mcp garmin-mcp-auth</span>
+            <button id="copyAuthCmdBtn" class="text-slate-300 hover:text-white bg-slate-800 px-2 py-1 rounded text-[10px]">Copy</button>
+          </div>
+        </div>
+
+        <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-2">
+          <div class="text-[11px] font-semibold text-slate-400 uppercase tracking-wide">Step 2: Token Storage</div>
+          <p class="text-slate-400">
+            Tokens are stored in <code class="text-cyan-400">~/.garminconnect</code>. Once saved, both Antigravity MCP and this dashboard connect instantly.
+          </p>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-end space-x-3 pt-2">
+        <button id="checkAuthBtn" class="px-4 py-2 rounded-xl text-xs font-semibold bg-emerald-500 hover:bg-emerald-400 text-slate-950 transition-all">
+          Verify Connection Status
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/js/app.js"></script>
+</body>
+</html>
