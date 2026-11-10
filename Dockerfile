@@ -4,7 +4,9 @@ WORKDIR /app
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    PORT=8000
+    PORT=8000 \
+    BOT_TIMEZONE="Europe/Kyiv" \
+    TELEGRAM_CHAT_ID="169817548"
 
 # Install ca-certificates and curl
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl \

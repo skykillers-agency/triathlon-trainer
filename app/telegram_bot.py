@@ -20,6 +20,7 @@ import logging
 import os
 from datetime import date, datetime, time as dtime, timedelta
 from typing import Optional
+from zoneinfo import ZoneInfo
 
 from telegram import BotCommand, Update
 from telegram.constants import ParseMode
@@ -40,6 +41,9 @@ logger = logging.getLogger("telegram_bot")
 TELEGRAM_TOKEN = os.environ.get(
     "TELEGRAM_BOT_TOKEN", "9050593562:AAFNIMWsUmob4rs58Qi8MJ996t43aqqKGWI"
 )
+DEFAULT_CHAT_ID = int(os.environ.get("TELEGRAM_CHAT_ID", "169817548"))
+KYIV_TZ = ZoneInfo(os.environ.get("BOT_TIMEZONE", "Europe/Kyiv"))
+
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".bot_data")
 os.makedirs(DATA_DIR, exist_ok=True)
 
@@ -74,24 +78,46 @@ def _generate_workout(assessment: dict, activities: list) -> dict:
 # ── Persistence helpers ────────────────────────────────────────────────────────
 
 def save_chat_id(chat_id: int) -> None:
-    with open(CHAT_ID_FILE, "w") as f:
-        f.write(str(chat_id))
+    try:
+        with open(CHAT_ID_FILE, "w") as f:
+            f.write(str(chat_id))
+    except Exception as e:
+        logger.warning(f"Could not persist chat_id to file: {e}")
 
 
-def load_chat_id() -> Optional[int]:
+def load_chat_id() -> int:
+    env_id = os.environ.get("TELEGRAM_CHAT_ID")
+    if env_id:
+        try:
+            return int(env_id)
+        except ValueError:
+            pass
     try:
         with open(CHAT_ID_FILE) as f:
-            return int(f.read().strip())
+            content = f.read().strip()
+            if content:
+                return int(content)
     except Exception:
-        return None
+        pass
+    return DEFAULT_CHAT_ID
 
 
 def save_briefing_time(hour: int, minute: int) -> None:
-    with open(BRIEFING_TIME_FILE, "w") as f:
-        f.write(f"{hour}:{minute}")
+    try:
+        with open(BRIEFING_TIME_FILE, "w") as f:
+            f.write(f"{hour}:{minute}")
+    except Exception as e:
+        logger.warning(f"Could not persist briefing time to file: {e}")
 
 
 def load_briefing_time() -> tuple[int, int]:
+    env_time = os.environ.get("BRIEFING_TIME")
+    if env_time and ":" in env_time:
+        try:
+            h, m = env_time.strip().split(":")
+            return int(h), int(m)
+        except Exception:
+            pass
     try:
         with open(BRIEFING_TIME_FILE) as f:
             h, m = f.read().strip().split(":")
@@ -339,6 +365,18 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     name = update.effective_user.first_name or "Athlete"
     h, m = load_briefing_time()
 
+    # Ensure morning briefing job is active for this chat
+    jq = context.application.job_queue
+    for j in jq.get_jobs_by_name("morning_briefing"):
+        j.schedule_removal()
+    jq.run_daily(
+        _morning_briefing_job,
+        time=dtime(hour=h, minute=m, tzinfo=KYIV_TZ),
+        name="morning_briefing",
+        chat_id=chat_id,
+    )
+    logger.info(f"Morning briefing scheduled for chat {chat_id} at {h:02d}:{m:02d} ({KYIV_TZ})")
+
     text = (
         f"🏊🚴🏃 *Welcome, {name}!* Your AI Triathlon Coach is live!\n\n"
         "Here's what I can do:\n\n"
@@ -546,12 +584,12 @@ async def cmd_briefing(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         chat_id = update.effective_chat.id
         jq.run_daily(
             _morning_briefing_job,
-            time=dtime(hour=h, minute=m),
+            time=dtime(hour=h, minute=m, tzinfo=KYIV_TZ),
             name="morning_briefing",
             chat_id=chat_id,
         )
         await update.message.reply_text(
-            f"✅ Morning briefing updated to *{h:02d}:{m:02d}* 🌅",
+            f"✅ Morning briefing updated to *{h:02d}:{m:02d}* ({KYIV_TZ}) 🌅",
             parse_mode=ParseMode.MARKDOWN,
         )
     except Exception:
@@ -611,12 +649,17 @@ async def _check_new_activities_job(context: ContextTypes.DEFAULT_TYPE) -> None:
 
         for activity in reversed(new_ones):  # oldest first
             text = _build_new_activity_message(activity)
-            await context.bot.send_message(chat_id=chat_id, text=text, parse_mode=ParseMode.MARKDOWN)
+            try:
+                await context.bot.send_message(chat_id=chat_id, text=text, parse_mode=ParseMode.MARKDOWN)
+            except Exception as e:
+                logger.warning(f"Failed to send activity with Markdown, falling back to plain text: {e}")
+                plain = text.replace("*", "").replace("`", "").replace("_", "")
+                await context.bot.send_message(chat_id=chat_id, text=plain)
             seen.add(activity["activity_id"])
 
         save_seen_activities(seen)
     except Exception as e:
-        logger.debug(f"Activity check error: {e}")
+        logger.error(f"Activity check error: {e}", exc_info=True)
 
 
 # ── App factory ────────────────────────────────────────────────────────────────
@@ -675,20 +718,21 @@ async def run_bot() -> None:
         # Schedule morning briefing
         h, m = load_briefing_time()
         saved_chat_id = load_chat_id()
-        if saved_chat_id:
-            app.job_queue.run_daily(
-                _morning_briefing_job,
-                time=dtime(hour=h, minute=m),
-                name="morning_briefing",
-                chat_id=saved_chat_id,
-            )
-            logger.info(f"Morning briefing scheduled at {h:02d}:{m:02d} for chat {saved_chat_id}")
+        for j in app.job_queue.get_jobs_by_name("morning_briefing"):
+            j.schedule_removal()
+        app.job_queue.run_daily(
+            _morning_briefing_job,
+            time=dtime(hour=h, minute=m, tzinfo=KYIV_TZ),
+            name="morning_briefing",
+            chat_id=saved_chat_id,
+        )
+        logger.info(f"Morning briefing scheduled at {h:02d}:{m:02d} ({KYIV_TZ}) for chat {saved_chat_id}")
 
-        # Poll for new Garmin activities every 15 minutes
+        # Poll for new Garmin activities every 5 minutes (300 sec)
         app.job_queue.run_repeating(
             _check_new_activities_job,
-            interval=900,  # 15 minutes
-            first=60,       # first check after 1 min
+            interval=300,  # 5 minutes
+            first=15,       # first check after 15 sec
             name="activity_check",
         )
 
